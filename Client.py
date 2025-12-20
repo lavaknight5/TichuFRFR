@@ -39,7 +39,6 @@ cardSurface = pygame.Surface((cardWidth, cardHeight), pygame.SRCALPHA)
 cardBack = pygame.Surface((cardWidth, cardHeight), pygame.SRCALPHA)
 cardBack.blit(cardImage, (cardWidth * (-28), 0))
 cardGive = pygame.Surface((cardGiveWidth, cardGiveHeight), pygame.SRCALPHA)
-#cardGive = pygame.Surface((0, 0), pygame.SRCALPHA)
 cardGive.blit(sprites,(-528*spriteModifier, -1447*spriteModifier))
 
 cardrect = {}
@@ -271,4 +270,5 @@ def sortedHand(hand):
     return cards
 
 if __name__ == '__main__':
+
     menu()
