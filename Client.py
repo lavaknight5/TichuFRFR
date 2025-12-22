@@ -79,8 +79,9 @@ def inGame():
     while run:
         hand = sortedHand(hand)
         getGame = n.send("Begin")
-
+        #print("Trying to get game")
         if getGame == "Waiting":
+            #print("Trying to connect")
             playing = False
         else:
             playing = True
@@ -88,8 +89,7 @@ def inGame():
         x_mouse, y_mouse = pygame.mouse.get_pos()
 
         PlayerHands = n.send("Get Hands")
-        #phase = n.send("Get Phase")
-        phase = "Giving"
+        phase = n.send("Get Phase")
         if phase == "Giving":
             for card in hand:
                 if card.selected:
@@ -158,6 +158,12 @@ def inGame():
                     selMode = True
                 if phase == "Giving" and sendBtn.posSc[0] < x_mouse < sendBtn.posSc[0] + sendBtn.size[0] and sendBtn.posSc[1] < y_mouse < sendBtn.posSc[1] + sendBtn.size[1] and sendBtn.ready:
                     sendBtn.clicked = not sendBtn.clicked
+                    if sendBtn.clicked:
+                        if n.send("Ready To Send") == "Get Cards":
+                            receivedCards = n.send("Sent Cards", socketedCards)
+
+                    else:
+                        n.send("Not Ready To Send")
 
         if playBtn.ready:
             if playBtn.posSc[0] < x_mouse < playBtn.posSc[0] + playBtn.size[0] and playBtn.posSc[1] < y_mouse < playBtn.posSc[1] + playBtn.size[1]:
