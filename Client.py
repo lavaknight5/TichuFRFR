@@ -44,7 +44,7 @@ cardGive.blit(sprites,(-528*spriteModifier, -1447*spriteModifier))
 
 cardrect = {}
 
-playPos = ((15 * (cardWidth * (2 / 3))) + cardWidth / 2, HEIGHT - cardHeight - 20 * bols)
+
 sendPos = ((15 * (cardWidth * (2 / 3))) + cardWidth / 2, HEIGHT - cardHeight - 20 * bols2)
 
 class Buttons:
@@ -68,15 +68,21 @@ def inGame():
     player = int(n.getP())
     print("You are player", player + 1)
     hand = n.send("Get Hand")
-    assign(hand, imageWidth, imageHeight)
+    hand = assign(hand, imageWidth, imageHeight)
     selMode = True
     playAssets = ("Assets/PlayGrey.png", "Assets/PlaySelected.png", "Assets/Play.png")
     sendAssets = ("Assets/Send.png", "Assets/SendSelected.png", "Assets/SendGrey.png", "Assets/SendGreen.png", "Assets/SendGreenSelected.png")
+    receiveAssets = ("Assets/Receive.png", "Assets/ReceiveSelected.png")
     socketedCards = {}
-    playBtn = Buttons(playPos, (WIDTH / 10, HEIGHT / 15), 0, playAssets)
-    sendBtn = Buttons(playPos, (WIDTH / 10, HEIGHT / 15), 0, sendAssets)
+
+    sendBtn = Buttons(sendPos, (WIDTH / 10, HEIGHT / 15), 0, sendAssets)
+    receiveBtn = Buttons(sendPos, (WIDTH / 10, HEIGHT / 15), 0, receiveAssets)
+    socketsHeight = [(HEIGHT - cardHeight - 20 * (bols + 1)) - cardGiveHeight + 12 * spriteModifier,(HEIGHT - cardHeight - 20 * (bols + 1)) - cardGiveHeight + 108 * spriteModifier]
+    sockets = [(WIDTH - cardGiveWidth) / 2 + 9 * spriteModifier, (WIDTH - cardGiveWidth) / 2 + 72 * spriteModifier,(WIDTH - cardGiveWidth) / 2 + 93 * spriteModifier, (WIDTH - cardGiveWidth) / 2 + 156 * spriteModifier,(WIDTH - cardGiveWidth) / 2 + 180 * spriteModifier, (WIDTH - cardGiveWidth) / 2 + 243 * spriteModifier]
 
     while run:
+        playPos = ((15 * (cardWidth * (2 / 3))) + cardWidth / 2, HEIGHT - cardHeight - 20 * bols)
+        playBtn = Buttons(playPos, (WIDTH / 10, HEIGHT / 15), 0, playAssets)
         hand = sortedHand(hand)
         getGame = n.send("Begin")
         #print("Trying to get game")
@@ -90,10 +96,13 @@ def inGame():
 
         PlayerHands = n.send("Get Hands")
         phase = n.send("Get Phase")
+
         if phase == "Giving":
             for card in hand:
                 if card.selected:
                     selMode = False
+        elif phase == "Receiving":
+            selMode = False
 
         if phase == "Giving":
             if len(socketedCards) == 3:
@@ -101,8 +110,11 @@ def inGame():
             else:
                 sendBtn.ready = False
 
-        socketsHeight = [(HEIGHT - cardHeight - 20 * (bols + 1)) - cardGiveHeight + 12 * spriteModifier,(HEIGHT - cardHeight - 20 * (bols + 1)) - cardGiveHeight + 108 * spriteModifier]
-        sockets = [(WIDTH - cardGiveWidth) / 2 + 9 * spriteModifier, (WIDTH - cardGiveWidth) / 2 + 72 * spriteModifier,(WIDTH - cardGiveWidth) / 2 + 93 * spriteModifier,(WIDTH - cardGiveWidth) / 2 + 156 * spriteModifier,(WIDTH - cardGiveWidth) / 2 + 180 * spriteModifier,(WIDTH - cardGiveWidth) / 2 + 243 * spriteModifier]
+        if phase == "Receiving":
+            if receiveBtn.posSc[0] < x_mouse < receiveBtn.posSc[0] + receiveBtn.size[0] and receiveBtn.posSc[1] < y_mouse < receiveBtn.posSc[1] + receiveBtn.size[1] and not receiveBtn.clicked:
+                receiveBtn.selected = True
+            else:
+                receiveBtn.selected = False
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -111,7 +123,7 @@ def inGame():
                 if phase == "Playing" or selMode:
                     breakIt = False
                     for j in range(3):
-                        if sockets[j * 2] < x_mouse < sockets[j * 2 + 1] and socketsHeight[0] < y_mouse < socketsHeight[1] and phase == "Giving":
+                        if sockets[j * 2] < x_mouse < sockets[j * 2 + 1] and socketsHeight[0] < y_mouse < socketsHeight[1] and phase == "Giving" and not sendBtn.clicked:
                             if j in socketedCards:
                                 socketedCards[j].socketed = [False, -1]
                                 hand.append(socketedCards[j])
@@ -125,28 +137,40 @@ def inGame():
                                 hand[i - 1].selected = not hand[i - 1].selected
 
                             hand[i].selected = True
-
                             movePlayButton(0, phase, hand)
                         elif playing and cardrect[i].collidepoint(x_mouse, y_mouse) and hand[i].selected:
                             if i > 0 and cardrect[i - 1].collidepoint(x_mouse, y_mouse):
                                 hand[i - 1].selected = not hand[i - 1].selected
+
                             hand[i].selected = False
                             movePlayButton(1, phase, hand)
+                elif phase == "Receiving":
+                    if receiveBtn.selected:
+                        for i in range(3):
+                            hand.append(socketedCards[i])
+                            hand = assign(hand,  imageWidth, imageHeight)
+                            socketedCards.pop(i)
+                        receiveBtn.clicked = True
                 else:
                     for i in range(len(hand)):
                         if hand[i].selected:
                             hand[i].selected = False
-                            if phase == "Giving":
+
+                            if phase == "Giving" and not sendBtn.clicked:
                                 if sockets[0] < x_mouse < sockets[1] and socketsHeight[0] < y_mouse < socketsHeight[1]:
                                     hand[i].socketed = [True, 0]
+
                                 elif sockets[2] < x_mouse < sockets[3] and socketsHeight[0] < y_mouse < socketsHeight[1]:
                                     hand[i].socketed = [True, 1]
+
                                 elif sockets[4] < x_mouse < sockets[5] and socketsHeight[0] < y_mouse < socketsHeight[1]:
                                     hand[i].socketed = [True, 2]
+
                             for j in range(3):
-                                if sockets[j * 2] < x_mouse < sockets[j * 2 + 1] and socketsHeight[0] < y_mouse < socketsHeight[1] and phase == "Giving":
+                                if sockets[j * 2] < x_mouse < sockets[j * 2 + 1] and socketsHeight[0] < y_mouse < socketsHeight[1] and phase == "Giving" and not sendBtn.clicked:
                                     if j in socketedCards:
                                         socketedCards[j].socketed = [False, -1]
+
                                         hand.append(socketedCards[j])
                                         socketedCards.pop(j)
                                     for card in hand:
@@ -158,12 +182,28 @@ def inGame():
                     selMode = True
                 if phase == "Giving" and sendBtn.posSc[0] < x_mouse < sendBtn.posSc[0] + sendBtn.size[0] and sendBtn.posSc[1] < y_mouse < sendBtn.posSc[1] + sendBtn.size[1] and sendBtn.ready:
                     sendBtn.clicked = not sendBtn.clicked
-                    if sendBtn.clicked:
-                        if n.send("Ready To Send") == "Get Cards":
-                            receivedCards = n.send("Sent Cards", socketedCards)
+        if sendBtn.clicked and phase == "Giving":
+            if n.send("Ready To Send") == "Get Cards":
+                n.send(["Sent Cards", socketedCards])
+                if n.send("Server Receive Status") == "Server Ready":
+                    n.send("Give Cards")
+                    data = n.send("Ready To Receive")
+                    if data != "Waiting":
+                        if data[2] == "Cards Sent":
+                            for i in range(3):
+                                socketedCards[i] = data[0][i]
 
-                    else:
-                        n.send("Not Ready To Send")
+                            hand.clear()
+                            for card in data[1]:
+                                hand.append(card)
+                                for j in range(3):
+                                    if card.id == socketedCards[j].id:
+                                        hand.remove(card)
+
+                            hand = assign(hand, imageWidth, imageHeight)
+                            n.send("Cards Received")
+        else:
+            n.send("Not Ready To Send")
 
         if playBtn.ready:
             if playBtn.posSc[0] < x_mouse < playBtn.posSc[0] + playBtn.size[0] and playBtn.posSc[1] < y_mouse < playBtn.posSc[1] + playBtn.size[1]:
@@ -177,10 +217,15 @@ def inGame():
             else:
                 sendBtn.selected = False
 
+
+        if receiveBtn.clicked:
+            n.send("Ready To Play")
+
         if phase == "Playing" and playing:
             drawGame(hand, PlayerHands, player, playBtn)
-        elif phase == "Giving" and playing:
-            drawGiving(hand, x_mouse, y_mouse, PlayerHands, player, socketsHeight, sockets, socketedCards, sendBtn)
+        elif (phase == "Giving" or phase == "Receiving") and playing:
+            drawGiving(hand, x_mouse, y_mouse, PlayerHands, player, socketsHeight, sockets, socketedCards, sendBtn, receiveBtn, phase)
+
         else:
             drawWaitingScreen()
     pygame.quit()
@@ -260,11 +305,12 @@ def movePlayButton(x, phase, hand):
                 except:
                     pass
 
-def drawGiving(hand, x, y, length, player, socketsHeight, sockets, socketedCards, sendBtn):
+def drawGiving(hand, x, y, length, player, socketsHeight, sockets, socketedCards, sendBtn, receiveBtn, phase):
     WIN.blit(BG, (0, 0))
     drawOpponent(length, player)
     space = (len(hand) + 0.5) * (cardWidth * (2 / 3))
-    WIN.blit(cardGive, ((WIDTH - cardGiveWidth) / 2, (HEIGHT - cardHeight - 20 * (bols + 1)) - cardGiveHeight))
+    if phase == "Giving" or (phase == "Receiving" and 0 in socketedCards):
+        WIN.blit(cardGive, ((WIDTH - cardGiveWidth) / 2, (HEIGHT - cardHeight - 20 * (bols + 1)) - cardGiveHeight))
     i = 0
     for count in range(3):
         if count in socketedCards:
@@ -281,25 +327,34 @@ def drawGiving(hand, x, y, length, player, socketsHeight, sockets, socketedCards
         cardSurface.blit(cardImage, (card.res[0], card.res[1]))
         card.y = HEIGHT - cardHeight - 20
         card.x = (WIDTH - space) / 2 + (cardWidth * (2 / 3)) * i
-        if card.selected:
+        if card.selected and phase == "Giving":
             hand[i].x = x - (cardWidth/2)
             hand[i].y = y - (cardHeight / 2)
 
         WIN.blit(cardSurface, (card.x , card.y))
         cardrect[i] = cardSurface.get_rect(topleft=(card.x, card.y))
         i += 1
-    if sendBtn.ready and sendBtn.selected and not sendBtn.clicked:
-        sendAsset = sendBtn.assets[1]
-    elif sendBtn.ready and not sendBtn.selected and not sendBtn.clicked:
-        sendAsset = sendBtn.assets[0]
-    elif not sendBtn.ready:
-        sendAsset = sendBtn.assets[2]
-    elif sendBtn.clicked:
-        sendAsset = sendBtn.assets[3]
+    if phase == "Giving":
+        if sendBtn.ready and sendBtn.selected and not sendBtn.clicked:
+            sendAsset = sendBtn.assets[1]
+        elif sendBtn.ready and not sendBtn.selected and not sendBtn.clicked:
+            sendAsset = sendBtn.assets[0]
+        elif not sendBtn.ready:
+            sendAsset = sendBtn.assets[2]
+        elif sendBtn.clicked:
+            sendAsset = sendBtn.assets[3]
+        else:
+            sendAsset = sendBtn.assets[4]
+        send = pygame.transform.scale(pygame.image.load(sendAsset), sendBtn.size)
+        WIN.blit(send, sendBtn.posSc)
     else:
-        sendAsset = sendBtn.assets[4]
-    send = pygame.transform.scale(pygame.image.load(sendAsset), sendBtn.size)
-    WIN.blit(send, sendBtn.posSc)
+        if receiveBtn.selected:
+            receiveAsset = receiveBtn.assets[1]
+        else:
+            receiveAsset = receiveBtn.assets[0]
+        receive = pygame.transform.scale(pygame.image.load(receiveAsset), receiveBtn.size)
+        if not receiveBtn.clicked:
+            WIN.blit(receive, receiveBtn.posSc)
     pygame.display.update()
 
 def drawOpponent(length, player):
@@ -379,30 +434,39 @@ def drawStart(start, startPos):
 
 def assign(hand, W, H):
     for card in hand:
+        card.res[0] = 0
+        card.res[1] = 0
         if card.color == "Red":
             card.res[0] -= W/30
             for _ in range(card.card - 2):
                 card.res[0] -= 2 * (W/30)
+
         elif card.color == "Green":
             for _ in range(card.card - 2):
                 card.res[0] -= 2 * (W/30)
+
         elif card.color == "Blue":
             card.res[0] -= (W/30)
             for _ in range(card.card - 2):
                 card.res[0] -= 2 * (W/30)
             card.res[1] -= (H/2)
+
         elif card.color == "Black":
             for _ in range(card.card - 2):
                 card.res[0] -= 2 * (W/30)
             card.res[1] -= (H/2)
+
         elif card.card == 15:
             card.res[0] += cardWidth * (-26)
             card.res[1] -= (H/2)
+
         elif card.card == 0.5:
             card.res[0] += cardWidth * (-27)
             card.res[1] -= (H/2)
+
         elif card.card == 1:
             card.res[0] += cardWidth * (-27)
+
         elif card.card == -2:
             card.res[0] += cardWidth * (-26)
 
