@@ -1,7 +1,5 @@
 from Tichudeck import Deck
 import random
-import pygame
-
 
 #cardSurface = pygame.Surface((cardWidth, cardHeight), pygame.SRCALPHA)
 # card = [cardImage, (x, y)]
@@ -12,9 +10,16 @@ class Game:
         self.id = id
         self.canPlay = False
         self.ready = False
+        self.serverReady = False
+        self.cardsGiven = [False, False, False, False]
+        self.cardsReceived = [False, False, False, False]
+        self.pReady = [False, False, False, False]
+        self.readyToPlay = [False, False, False, False]
         self.pTurn = -1
         self.deck = self.getDeck()
-        self.phase = ""
+        self.cardsToGive = {}
+        self.cardsToReceive = [{}, {}, {}, {}]
+        self.phase = "Giving"
 
     def isCombination(self, cards):
         length = len(cards)
@@ -161,16 +166,38 @@ class Game:
         cards.append(Dragon)
         return cards
 
-    def sendCard(self, card, player1, player2):
-        self.hands[player1].pop(card)
-        self.hands[player2].append(card)
+    def sendCard(self, card, player1, player2, cardToReceive):
+        for cards in self.hands[player1]:
+            if cards.id == card.id:
+                print(cards.card, cards.color)
+                self.hands[player1].remove(cards)
+                self.hands[player2].append(card)
+        self.cardsToReceive[player2][cardToReceive] = card
 
-    def play(self, p1, p2, p3, p4):
+    def play(self, player):
         if self.phase == "Giving":
-            #p = [card1, card2, card3]
-            for i in range(1,4):
-                self.sendCard(p1[i-1], 1, i+1)
-                self.sendCard(p4[3-i], 4, 4-i)
-            self.sendCard(p2[0], 1, 1)
-            self.sendCard(p2[2], 1, 3)
-            self.sendCard(p2[1], 1, 4)
+            #p = {0 : card1, 1 : card2, 2 : card3}
+            p1 = self.cardsToGive[0]
+            p2 = self.cardsToGive[1]
+            p3 = self.cardsToGive[2]
+            p4 = self.cardsToGive[3]
+            if player == 2:
+                self.sendCard(p3[2], 2, 3, 0)
+                self.sendCard(p3[0], 2, 1, 2)
+                self.sendCard(p3[1], 2, 0, 1)
+                self.cardsGiven[2] = True
+            elif player == 0:
+                self.sendCard(p1[1], 0, 2, 1)
+                self.sendCard(p1[0], 0, 3, 2)
+                self.sendCard(p1[2], 0, 1, 0)
+                self.cardsGiven[0] = True
+            elif player == 3:
+                self.sendCard(p4[0], 3, 2, 2)
+                self.sendCard(p4[1], 3, 1, 1)
+                self.sendCard(p4[2], 3, 0, 0)
+                self.cardsGiven[3] = True
+            elif player == 1:
+                self.sendCard(p2[0], 1, 0, 2)
+                self.sendCard(p2[1], 1, 3, 1)
+                self.sendCard(p2[2], 1, 2, 0)
+                self.cardsGiven[1] = True
