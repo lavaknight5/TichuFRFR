@@ -3,7 +3,7 @@ from _thread import *
 import pickle
 from Tichugame import Game
 
-server = "192.168.1.176"
+server = "26.186.60.195"
 port = 5555
 
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -30,10 +30,11 @@ def threaded_client(conn, p, gameId):
     conn.send(str.encode(str(p)))
     reply = ""
     while True:
-        data = pickle.loads(conn.recv(2048*8))
+        data = pickle.loads(conn.recv(2048*8*2))
         try:
             if gameId in games:
                 game = games[gameId]
+                #print(data)
                 if not data:
                     break
                 else:
@@ -41,12 +42,44 @@ def threaded_client(conn, p, gameId):
                         reply = game.hands[p]
                     elif data == "Begin" and game.ready:
                         reply = "Start"
-                    elif data == "Get Hands":
+                    elif game.phase != "Receiving" and data == "Get Hands":
                         reply = [len(game.hands[0]), len(game.hands[1]), len(game.hands[2]), len(game.hands[3])]
-
+                    elif game.phase == "Receiving" and data == "Get Hands":
+                        reply = []
+                        for i in range(4):
+                            if game.readyToPlay[i]:
+                                reply.append(len(game.hands[i]))
+                            else:
+                                reply.append(len(game.hands[i]) - 3)
+                    elif data == "Get Phase":
+                        reply = game.phase
+                    elif game.phase == "Giving" and data == "Not Ready To Send":
+                        game.pReady[p] = False
+                    elif game.phase == "Giving" and data == "Ready To Send":
+                        game.pReady[p] = True
+                        if game.pReady[0] and game.pReady[1] and game.pReady[2] and game.pReady[3]:
+                            reply = "Get Cards"
+                    elif game.phase == "Giving" and data[0] == "Sent Cards" and p not in game.cardsToGive:
+                        game.cardsToGive[p] = data[1]
+                    elif game.phase == "Giving" and data == "Server Receive Status":
+                        if len(game.cardsToGive) == 4:
+                            reply = "Server Ready"
+                    elif game.phase == "Giving" and data == "Give Cards":
+                        game.play(p)
+                    elif game.phase == "Giving" and data == "Ready To Receive":
+                        if game.cardsGiven[0] and game.cardsGiven[1] and game.cardsGiven[2] and game.cardsGiven[3]:
+                            reply = ([game.cardsToReceive[p], game.hands[p], "Cards Sent"])
+                    elif game.phase == "Receiving" and data == "Ready To Play":
+                        game.readyToPlay[p] = True
+                        if game.readyToPlay[0] and game.readyToPlay[1] and game.readyToPlay[2] and game.readyToPlay[3]:
+                            game.phase = "Playing"
+                    elif game.phase == "Giving" and data == "Cards Received":
+                        game.cardsReceived[p] = True
+                        if game.cardsReceived[0] and game.cardsReceived[1] and game.cardsReceived[2] and game.cardsReceived[3]:
+                            game.phase = "Receiving"
                     else:
                         reply = "Waiting"
-
+                    #print(reply)
                     if data[0] == "Select":
                         for card in game.hands[p]:
                             if card.id == data[1]:
@@ -70,16 +103,15 @@ while True:
     conn, addr = s.accept()
     print("Connection address:", addr)
     if idCount % 4 == 0:
-        gameId = idCount/4
+        gameId = idCount//4
     idCount += 1
     if idCount % 4 == 1:
         games[gameId] = Game(gameId)
         print("Creating a new game...")
     if p == 0:
         for hand in games[gameId].shuffle(games[gameId].deck):
-            print(hand)
             games[gameId].hands.append(hand)
-    elif p == 1: #Na kanw 3
+    elif p == 3: #Na kanw 3
         games[gameId].ready = True
     start_new_thread(threaded_client, (conn, p, gameId))
     if p == 3:
