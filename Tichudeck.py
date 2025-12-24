@@ -7,3 +7,4 @@ class Deck:
         self.res = [0,0]
         self.selected = False
         self.y = 0
+        self.socketed = [False, -1]
