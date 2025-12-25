@@ -1,3 +1,5 @@
+from operator import truediv
+
 from Tichudeck import Deck
 import random
 
@@ -15,11 +17,21 @@ class Game:
         self.cardsReceived = [False, False, False, False]
         self.pReady = [False, False, False, False]
         self.readyToPlay = [False, False, False, False]
+        self.cardsDown = []
+        self.collectedCards = [[], [], [], []]
+        self.firstTurn = True
+        self.combination = ""
         self.pTurn = -1
         self.deck = self.getDeck()
         self.cardsToGive = {}
         self.cardsToReceive = [{}, {}, {}, {}]
         self.phase = "Giving"
+        self.requestedCard = [False, 0]
+        self.playerNames = {}
+        self.combAmount = 0
+        self.threeOfAKindBase = 0
+        self.straightBase = 0
+        self.stepsBase = 0
 
     def isCombination(self, cards):
         length = len(cards)
@@ -174,7 +186,97 @@ class Game:
                 self.hands[player2].append(card)
         self.cardsToReceive[player2][cardToReceive] = card
 
-    def play(self, player):
+    def canBePlayed(self, cards, player):
+        if self.pTurn == player:
+            if self.isCombination(cards) == self.combination or self.firstTurn:
+                return True
+        return False
+
+    def mahJong(self, player):
+        num = self.requestedCard[1]
+        for card in self.hands[player]:
+            if card.card == num:
+                if self.combination == "":
+                    return True
+                elif self.combination == "HighCard":
+                    if num > self.cardsDown[len(self.cardsDown) - 1].card:
+                        return True
+                elif self.combination == "Pair" and num > self.cardsDown[len(self.cardsDown) - 1].card:
+                    for i in range(len(self.hands[player])):
+                        if self.hands[player][i].card == num:
+                            x = i
+                            break
+                    for i in range(len(self.hands[player])):
+                        if i == x:
+                            continue
+                        if self.isCombination([self.hands[player][i].card, self.hands[player][x].card]) == "Pair":
+                            return True
+                elif self.combination == "ThreeOfAKind":
+                    for i in range(len(self.hands[player])):
+                        if self.hands[player][i].card == num:
+                            x = i
+                            break
+                    for i in range(len(self.hands[player])):
+                        if i == x:
+                            continue
+                        if self.isCombination([self.hands[player][i].card, self.hands[player][x].card]) == "Pair":
+                            y = i
+                            break
+                    for i in range(len(self.hands[player])):
+                        if i == y or i == x:
+                            continue
+                        if self.isCombination([self.hands[player][i].card, self.hands[player][x].card, self.hands[player][y].card]) == "ThreeOfAKind":
+                            return True
+                elif self.combination == "FullHouse":
+                    c = 0
+                    phoenix = False
+                    for i in range(len(self.hands[player])):
+                        if self.hands[player][i].card == 0.5:
+                            phoenix = True
+                        if self.hands[player][i].card == num:
+                            x = i
+                            break
+                    if not phoenix:
+                        for i in range(len(self.hands[player])):
+                            if i == x:
+                                continue
+                            if self.isCombination([self.hands[player][i].card, self.hands[player][x].card]) == "Pair":
+                                y = i
+                                break
+                        for i in range(len(self.hands[player])):
+                            if i == y or i == x:
+                                continue
+                            if self.isCombination([self.hands[player][i].card, self.hands[player][x].card, self.hands[player][y].card]) == "ThreeOfAKind":
+                                c = 1
+                            if c == 0:
+                                a = -1
+                                b = -1
+                                for i in range(len(self.hands[player])):
+                                    if i == y or i == x:
+                                        continue
+                                    for j in range(len(self.hands[player])):
+                                        if j == y or j == x:
+                                            continue
+                                        if self.isCombination([self.hands[player][i].card, self.hands[player][j].card, self.hands[player][y].card]) == "Pair":
+                                            a = i
+                                            b = j
+                                            break
+                                    if a != -1 and b != -1:
+                                        break
+                                if a == -1 or b == -1:
+                                    return False
+                                else:
+                                    for i in range(len(self.hands[player])):
+                                        if i == y or i == x or i == a or i == b:
+                                            continue
+                                        if self.isCombination([self.hands[player][i].card, self.hands[player][a].card,self.hands[player][b].card]) == "ThreeOfAKind":
+                                            return True
+                            else:
+                                for i in range(len(self.hands[player])):
+                                    if i == y or i == x:
+                                        continue
+
+    def play(self, player, *cardsPlayed):
         if self.phase == "Giving":
             #p = {0 : card1, 1 : card2, 2 : card3}
             p1 = self.cardsToGive[0]
@@ -201,3 +303,39 @@ class Game:
                 self.sendCard(p2[1], 1, 3, 1)
                 self.sendCard(p2[2], 1, 2, 0)
                 self.cardsGiven[1] = True
+
+        if self.phase == "Playing" and self.pTurn == -1:
+            for i in range(4):
+                for card in self.hands[i]:
+                    if card.id == 53:
+                        self.pTurn = i
+                        return
+
+        if self.phase == "Playing":
+            try:
+                phoenix = False
+                if not self.requestedCard[0]:
+                    if self.canBePlayed(player, cardsPlayed[0]):
+                        self.combination = self.isCombination(cardsPlayed[0])
+                        if self.isCombination(cardsPlayed[0]) == "Straight" or self.isCombination(cardsPlayed[0]) == "Steps":
+                            self.combAmount = len(cardsPlayed[0])
+                        if self.isCombination(cardsPlayed[0]) == "ThreeOfAKind":
+                            sortedCards = sorted(cardsPlayed[0], key=lambda card: card.card, reverse=False)
+                            for i in range(len(sortedCards)):
+                                if sortedCards[i].card == 0.5:
+                                    phoenix = True
+                                    break
+                            if phoenix and sortedCards[i].pretendedCard > sortedCards[0].card:
+                                self.threeOfAKindBase = sortedCards[i]
+                            else:
+                                self.threeOfAKindBase = sortedCards[0]
+
+                        for card in cardsPlayed[0]:
+                            for cards in self.hands[player]:
+                                if card.id == cards.id:
+                                    self.hands[player].remove(cards)
+                                    self.cardsDown.append(card)
+                            if card.mahjong != 0:
+                                self.requestedCard = [True, card.mahjong]
+            except:
+                pass
