@@ -8,3 +8,5 @@ class Deck:
         self.selected = False
         self.y = 0
         self.socketed = [False, -1]
+        self.mahjong = 0
+        self.pretendedCard = 0.5
