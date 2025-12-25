@@ -40,6 +40,8 @@ def threaded_client(conn, p, gameId):
                 else:
                     if data == "Get Hand":
                         reply = game.hands[p]
+                    elif data[0] == "Name":
+                        game.playerNames[p] = data[1]
                     elif data == "Begin" and game.ready:
                         reply = "Start"
                     elif game.phase != "Receiving" and data == "Get Hands":
@@ -73,10 +75,16 @@ def threaded_client(conn, p, gameId):
                         game.readyToPlay[p] = True
                         if game.readyToPlay[0] and game.readyToPlay[1] and game.readyToPlay[2] and game.readyToPlay[3]:
                             game.phase = "Playing"
+                            game.play(p)
                     elif game.phase == "Giving" and data == "Cards Received":
                         game.cardsReceived[p] = True
                         if game.cardsReceived[0] and game.cardsReceived[1] and game.cardsReceived[2] and game.cardsReceived[3]:
                             game.phase = "Receiving"
+                    elif game.phase == "Playing" and data == "Turn":
+                        if game.pTurn == p:
+                            reply = True
+                        else:
+                            reply = False
                     else:
                         reply = "Waiting"
                     #print(reply)
