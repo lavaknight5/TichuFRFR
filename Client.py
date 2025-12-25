@@ -41,7 +41,10 @@ cardBack.blit(cardImage, (cardWidth * (-28), 0))
 cardGive = pygame.Surface((cardGiveWidth, cardGiveHeight), pygame.SRCALPHA)
 #cardGive = pygame.Surface((0, 0), pygame.SRCALPHA)
 cardGive.blit(sprites,(-528*spriteModifier, -1447*spriteModifier))
+mahjongclicked = False
+name = "Pontikarios"
 
+selectedCards = []
 cardrect = {}
 
 
@@ -62,11 +65,13 @@ def inGame():
     global bols
     global sendPos
     global playPos
+    global mahjongclicked
     run = True
     clock = pygame.time.Clock()
     n = Network()
     player = int(n.getP())
     print("You are player", player + 1)
+    n.send(("Name", name))
     hand = n.send("Get Hand")
     hand = assign(hand, imageWidth, imageHeight)
     selMode = True
@@ -74,6 +79,9 @@ def inGame():
     sendAssets = ("Assets/Send.png", "Assets/SendSelected.png", "Assets/SendGrey.png", "Assets/SendGreen.png", "Assets/SendGreenSelected.png")
     receiveAssets = ("Assets/Receive.png", "Assets/ReceiveSelected.png")
     socketedCards = {}
+    myTurn = False
+    MahJong = False
+    mahjongMenuOff = False
 
     sendBtn = Buttons(sendPos, (WIDTH / 10, HEIGHT / 15), 0, sendAssets)
     receiveBtn = Buttons(sendPos, (WIDTH / 10, HEIGHT / 15), 0, receiveAssets)
@@ -116,6 +124,30 @@ def inGame():
             else:
                 receiveBtn.selected = False
 
+        if phase == "Playing":
+            myTurn = n.send("Turn")
+
+        if myTurn:
+            for card in hand:
+                if card.selected:
+                    selectedCards.append(card)
+                else:
+                    for cards in selectedCards:
+                        if card.id == cards.id:
+                            selectedCards.remove(cards)
+
+
+        for mahjongcard in range(len(hand)):
+            if hand[mahjongcard].id == 53 and hand[mahjongcard].selected and not mahjongMenuOff:
+                MahJong = True
+                break
+            elif hand[mahjongcard].id == 53 and not hand[mahjongcard].selected:
+                mahjongMenuOff = False
+            else:
+                MahJong = False
+
+
+
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 run = False
@@ -144,6 +176,27 @@ def inGame():
 
                             hand[i].selected = False
                             movePlayButton(1, phase, hand)
+                    if MahJong:
+                        space1 = 15 * cardWidth * (2 / 3)
+                        tab_x = (WIDTH - space1) / 2
+                        tab_y = HEIGHT - cardHeight - 30 * bols
+                        for i in range(13):
+                            if tab_x + 41 * spriteModifier + 33 * spriteModifier * i < x_mouse < tab_x + 41 * spriteModifier + 33 * spriteModifier * (i + 1) and tab_y + 21 * spriteModifier < y_mouse < tab_y + 63 * spriteModifier:
+                                x_mahclick = x_mouse
+                                y_mahclick = y_mouse
+                                if hand[mahjongcard].mahjong != 14-i:
+                                    hand[mahjongcard].mahjong = 14 - i
+                                    mahjongclicked = True
+                                else:
+                                    hand[mahjongcard].mahjong = 0
+                                    mahjongclicked = False
+                                print(hand[mahjongcard].mahjong)
+                            if i == 12 or i == 11:
+                                if tab_x + 41 * spriteModifier + 33 * spriteModifier * i < x_mouse < tab_x + 41 * spriteModifier + 33 * spriteModifier * (
+                                        i + 1) and tab_y + 8 * spriteModifier < y_mouse < tab_y + 20 * spriteModifier:
+                                    mahjongMenuOff = True
+
+
                 elif phase == "Receiving":
                     if receiveBtn.selected:
                         for i in range(3):
@@ -217,20 +270,25 @@ def inGame():
             else:
                 sendBtn.selected = False
 
-
-        if receiveBtn.clicked:
-            n.send("Ready To Play")
-
         if phase == "Playing" and playing:
-            drawGame(hand, PlayerHands, player, playBtn)
+            if MahJong and not mahjongclicked:
+                drawGame(hand, PlayerHands, player, playBtn, x_mouse, y_mouse, MahJong, mahjongcard)
+            elif MahJong and mahjongclicked:
+                drawGame(hand, PlayerHands, player, playBtn, x_mahclick, y_mahclick, MahJong, mahjongcard)
+            else:
+                drawGame(hand, PlayerHands, player, playBtn, x_mouse, y_mouse, MahJong)
+
         elif (phase == "Giving" or phase == "Receiving") and playing:
             drawGiving(hand, x_mouse, y_mouse, PlayerHands, player, socketsHeight, sockets, socketedCards, sendBtn, receiveBtn, phase)
 
         else:
             drawWaitingScreen()
+
+        if receiveBtn.clicked:
+            n.send("Ready To Play")
     pygame.quit()
 
-def drawGame(hand, length, player, playBtn):
+def drawGame(hand, length, player, playBtn, x, y, mahjong, *cardnum):
     WIN.blit(BG, (0, 0))
     i = 0
     space = (len(hand)+1) * (cardWidth * (2 / 3))
@@ -252,7 +310,16 @@ def drawGame(hand, length, player, playBtn):
         playAsset = playBtn.assets[2]
     play = pygame.transform.scale(pygame.image.load(playAsset), playBtn.size)
     WIN.blit(play, playBtn.posSc)
-
+    if mahjong:
+        space1 = 15 * cardWidth * (2 / 3)
+        tab_x = (WIDTH - space1) / 2
+        tab_y = HEIGHT - cardHeight - 30*bols
+        mahjong = pygame.Surface((484 * spriteModifier, 75 * spriteModifier))
+        mahjong.blit(sprites, (-20 * spriteModifier, -723 * spriteModifier + 73 * spriteModifier))
+        for i in range(14):
+            if tab_x + 41 * spriteModifier + 33 * spriteModifier * i < x < tab_x + 41 * spriteModifier + 33 * spriteModifier * (i + 1) and tab_y + 21 * spriteModifier < y < tab_y + 63 * spriteModifier:
+                mahjong.blit(sprites, (-20 * spriteModifier, -723 * spriteModifier - 73 * spriteModifier * (12 - i)))
+        WIN.blit(mahjong, (tab_x, tab_y))
     pygame.display.update()
 
 def movePlayButton(x, phase, hand):
